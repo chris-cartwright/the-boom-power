@@ -39,7 +39,7 @@ fn main() -> ! {
 
     let mut pin_relay_mixer = pins.d5.into_output();
     let mut pin_relay_subwoofers = pins.d6.into_output();
-    let mut pin_mosfet = pins.d7.into_output();
+    let mut pin_rpi_power = pins.d7.into_output();
 
     let mut power_state = PowerState::Off;
 
@@ -66,7 +66,7 @@ fn main() -> ! {
 
                 pin_relay_mixer.set_high();
                 pin_rpi_state.set_high();
-                pin_mosfet.set_high();
+                pin_rpi_power.set_high();
                 PowerState::EnableSubwoofers(Timer::new(TimeSpan::Seconds(5)))
             }
             PowerState::Off => { power_state }
@@ -94,7 +94,7 @@ fn main() -> ! {
             PowerState::DisableMixer(_) => { power_state }
             PowerState::RpiShutdown if rpi_signal.changed() == Some(PinState::Low) => {
                 rpi_signal.clear();
-                pin_mosfet.set_low();
+                pin_rpi_power.set_low();
                 PowerState::Off
             }
             PowerState::RpiShutdown => { power_state }
