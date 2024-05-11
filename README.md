@@ -1,4 +1,4 @@
-the-boom-power
+The Boom Power
 ==============
 
 Rust project for the _Arduino Nano_.
