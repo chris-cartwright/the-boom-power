@@ -47,6 +47,11 @@ impl<MODE: InputMode, PIN: PinOps> Debounce<MODE, PIN> {
         }
     }
 
+    pub fn state(&self) -> PinState
+    {
+        self.state
+    }
+
     pub fn changed(&mut self) -> Option<PinState> {
         self.change
     }

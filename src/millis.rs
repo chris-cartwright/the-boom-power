@@ -11,6 +11,7 @@
 
 use core::{cell, fmt};
 use avr_device::interrupt::{Mutex, free};
+use ufmt::derive::uDebug;
 
 // Possible Values:
 //
@@ -66,6 +67,7 @@ pub fn now() -> Millis {
 }
 
 #[derive(Clone, Copy)]
+#[derive(uDebug)]
 pub enum Duration {
     Ref { end: Millis, duration: Millis },
     NoRef(Millis),
@@ -89,6 +91,7 @@ pub fn has_elapsed(start: Millis, duration: Duration) -> bool {
 }
 
 #[derive(Clone, Copy)]
+#[derive(uDebug)]
 pub enum TimeSpan {
     Milliseconds(u16),
     Seconds(u16),
@@ -119,6 +122,8 @@ impl From<u16> for TimeSpan
     }
 }
 
+#[derive(Clone, Copy)]
+#[derive(uDebug)]
 pub struct Timer {
     start: Millis,
     duration: Duration,
