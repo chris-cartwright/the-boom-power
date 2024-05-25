@@ -102,6 +102,8 @@ fn main() -> ! {
     let mut pin_relay_subwoofers = pins.d6.into_output_high();
     let mut pin_rpi_power = pins.d7.into_output();
 
+    let mut pin_power_state = pins.d8.into_output();
+
     let mut power_state = PowerState::Off;
 
     let mut led_last = millis::now();
@@ -129,21 +131,21 @@ fn main() -> ! {
         rpi_signal.tick();
 
         let now = millis::now();
-        if now - led_last >= 1000
-        {
+        if now - led_last >= 1000 {
             led.toggle();
             led_last = now;
         }
 
         let changed = power_signal.changed();
         let prev_state = power_state.clone();
-        power_state = match power_state
-        {
+        power_state = match power_state {
             // Power on
             PowerState::Off if changed == Some(PinState::High) => {
                 power_signal.clear();
 
                 ep.write_byte(state_offset, 1);
+                pin_power_state.set_high();
+
                 pin_relay_mixer.set_low();
                 pin_rpi_state.set_high();
                 pin_rpi_power.set_high();
@@ -175,7 +177,9 @@ fn main() -> ! {
             PowerState::RpiShutdown if rpi_signal.state() == PinState::Low => {
                 rpi_signal.clear();
                 pin_rpi_power.set_low();
+
                 ep.erase_byte(state_offset);
+                pin_power_state.set_low();
                 PowerState::Off
             }
             PowerState::RpiShutdown => { power_state }
@@ -183,13 +187,13 @@ fn main() -> ! {
             // Clean up after abrupt power loss
             PowerState::PowerSignalLow if power_signal.state() == PinState::Low => {
                 ep.erase_byte(state_offset);
+                pin_power_state.set_low();
                 PowerState::Off
             }
             PowerState::PowerSignalLow => { power_state }
         };
 
-        if prev_state != power_state
-        {
+        if prev_state != power_state {
             println!(
                 "[{}] State change from {:?} to {:?}.",
                 millis::now(),
