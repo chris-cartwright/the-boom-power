@@ -15,6 +15,7 @@ use core::cell::RefCell;
 use ufmt::derive::{uDebug};
 
 type Console = arduino_hal::hal::usart::Usart0<arduino_hal::DefaultClock>;
+
 static CONSOLE: interrupt::Mutex<RefCell<Option<Console>>> =
     interrupt::Mutex::new(RefCell::new(None));
 
@@ -59,6 +60,7 @@ enum PowerState {
     On,
     DisableMixer(Timer),
     RpiShutdown,
+    PowerSignalLow,
 }
 
 impl PartialEq for PowerState
@@ -105,7 +107,22 @@ fn main() -> ! {
     let mut led_last = millis::now();
     let mut led = pins.d13.into_output();
 
-    println!("Setup complete.");
+    let mut ep = arduino_hal::Eeprom::new(dp.EEPROM);
+
+    println!("Hardware setup complete.");
+
+    let state_offset = 150;
+
+    let mut state = [0u8; 1];
+    if ep.read(state_offset, &mut state).is_err() || state[0] > 0
+    {
+        power_state = PowerState::PowerSignalLow;
+    }
+
+    match power_state {
+        PowerState::Off => println!("State check complete."),
+        _ => println!("Improper shutdown. Waiting for switch reset.")
+    }
 
     loop {
         power_signal.tick();
@@ -126,6 +143,7 @@ fn main() -> ! {
             PowerState::Off if changed == Some(PinState::High) => {
                 power_signal.clear();
 
+                ep.write_byte(state_offset, 1);
                 pin_relay_mixer.set_low();
                 pin_rpi_state.set_high();
                 pin_rpi_power.set_high();
@@ -157,9 +175,17 @@ fn main() -> ! {
             PowerState::RpiShutdown if rpi_signal.state() == PinState::Low => {
                 rpi_signal.clear();
                 pin_rpi_power.set_low();
+                ep.erase_byte(state_offset);
                 PowerState::Off
             }
             PowerState::RpiShutdown => { power_state }
+
+            // Clean up after abrupt power loss
+            PowerState::PowerSignalLow if power_signal.state() == PinState::Low => {
+                ep.erase_byte(state_offset);
+                PowerState::Off
+            }
+            PowerState::PowerSignalLow => { power_state }
         };
 
         if prev_state != power_state
