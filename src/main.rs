@@ -59,7 +59,7 @@ enum PowerState {
     EnableSubwoofers(Timer),
     On,
     DisableMixer(Timer),
-    RpiShutdown,
+    RpiShutdown(Timer),
     PowerSignalLow,
 }
 
@@ -72,7 +72,7 @@ impl PartialEq for PowerState
             (EnableSubwoofers(_), EnableSubwoofers(_)) => true,
             (On, On) => true,
             (DisableMixer(_), DisableMixer(_)) => true,
-            (RpiShutdown, RpiShutdown) => true,
+            (RpiShutdown(_), RpiShutdown(_)) => true,
             (_, _) => false
         }
     }
@@ -171,10 +171,17 @@ fn main() -> ! {
             PowerState::On => { power_state }
             PowerState::DisableMixer(timer) if timer.has_elapsed() => {
                 pin_relay_mixer.set_high();
-                PowerState::RpiShutdown
+                PowerState::RpiShutdown(Timer::new(TimeSpan::Milliseconds(500)))
             }
             PowerState::DisableMixer(_) => { power_state }
-            PowerState::RpiShutdown if rpi_signal.state() == PinState::Low => {
+            PowerState::RpiShutdown(timer) if timer.has_elapsed() => {
+                // Falling edge triggers logic on Pi side.
+                // Keep toggling the pin until a shutdown happens. Pi may not have been in a
+                // listening state.
+                pin_rpi_state.toggle();
+                PowerState::RpiShutdown(Timer::new(TimeSpan::Milliseconds(500)))
+            }
+            PowerState::RpiShutdown(_) if rpi_signal.state() == PinState::High => {
                 rpi_signal.clear();
                 pin_rpi_power.set_high();
 
@@ -182,7 +189,7 @@ fn main() -> ! {
                 pin_power_state.set_low();
                 PowerState::Off
             }
-            PowerState::RpiShutdown => { power_state }
+            PowerState::RpiShutdown(_) => { power_state }
 
             // Clean up after abrupt power loss
             PowerState::PowerSignalLow if power_signal.state() == PinState::Low => {
