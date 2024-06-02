@@ -92,7 +92,7 @@ fn main() -> ! {
     put_console(serial);
 
     let pin_power_signal = pins.d2.into_pull_up_input();
-    let mut power_signal = Debounce::new(pin_power_signal, None);
+    let mut power_signal = Debounce::new(pin_power_signal, Some(100u16));
 
     let pin_rpi_signal = pins.d3.into_floating_input();
     let mut rpi_signal = Debounce::new(pin_rpi_signal, None);
