@@ -94,20 +94,20 @@ fn main() -> ! {
     let pin_power_signal = pins.d2.into_pull_up_input();
     let mut power_signal = Debounce::new(pin_power_signal, Some(100u16));
 
-    let pin_rpi_signal = pins.d3.into_floating_input();
+    let pin_rpi_signal = pins.d10.into_floating_input();
     let mut rpi_signal = Debounce::new(pin_rpi_signal, None);
-    let mut pin_rpi_state = pins.d4.into_output();
+    let mut pin_rpi_state = pins.d11.into_output();
 
-    let mut pin_relay_mixer = pins.d5.into_output_high();
-    let mut pin_relay_subwoofers = pins.d6.into_output_high();
-    let mut pin_rpi_power = pins.d7.into_opendrain_high();
+    let mut pin_relay_mixer = pins.d3.into_output_high();
+    let mut pin_relay_subwoofers = pins.d4.into_output_high();
+    let mut pin_rpi_power = pins.d8.into_opendrain_high();
 
-    let mut pin_power_state = pins.d8.into_output();
+    let mut pin_power_state = pins.d6.into_output();
 
     let mut power_state = PowerState::Off;
 
     let mut led_last = millis::now();
-    let mut led = pins.d13.into_output();
+    let mut led = pins.d9.into_output();
 
     let mut ep = arduino_hal::Eeprom::new(dp.EEPROM);
 
