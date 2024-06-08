@@ -6,8 +6,10 @@
 mod millis;
 mod debounce;
 
-use embedded_hal::digital::PinState;
+#[allow(unused_imports)]
 use panic_halt as _;
+
+use embedded_hal::digital::PinState;
 use crate::debounce::Debounce;
 use crate::millis::{Timer, TimeSpan};
 use avr_device::interrupt;
