@@ -14,6 +14,8 @@ use crate::debounce::Debounce;
 use crate::millis::{Timer, TimeSpan};
 use avr_device::interrupt;
 use core::cell::RefCell;
+use arduino_hal::simple_pwm::{IntoPwmPin, Prescaler, Timer0Pwm, Timer1Pwm};
+use embedded_hal::pwm::SetDutyCycle;
 use ufmt::derive::{uDebug};
 
 type Console = arduino_hal::hal::usart::Usart0<arduino_hal::DefaultClock>;
@@ -85,13 +87,17 @@ fn main() -> ! {
     let dp = arduino_hal::Peripherals::take().unwrap();
     let pins = arduino_hal::pins!(dp);
 
-    millis::init(dp.TC0);
+    // All the way to 2 because I forgot there is a relationship between pin and timer :(.
+    millis::init(dp.TC2);
     unsafe {
         interrupt::enable();
     }
 
     let serial = arduino_hal::default_serial!(dp, pins, 57600);
     put_console(serial);
+
+    let timer0 = Timer0Pwm::new(dp.TC0, Prescaler::Prescale64);
+    let timer1 = Timer1Pwm::new(dp.TC1, Prescaler::Prescale64);
 
     let pin_power_signal = pins.d2.into_pull_up_input();
     let mut power_signal = Debounce::new(pin_power_signal, Some(100u16));
@@ -104,12 +110,17 @@ fn main() -> ! {
     let mut pin_relay_subwoofers = pins.d4.into_output_high();
     let mut pin_rpi_power = pins.d8.into_opendrain_high();
 
-    let mut pin_power_state = pins.d6.into_output();
+    let mut pin_power_state = pins.d6.into_output().into_pwm(&timer0);
+    pin_power_state.disable();
+    pin_power_state.set_duty_cycle_percent(90).unwrap();
 
     let mut power_state = PowerState::Off;
 
     let mut led_last = millis::now();
-    let mut led = pins.d9.into_output();
+    let mut led_state = true;
+    let mut led = pins.d9.into_output().into_pwm(&timer1);
+    led.enable();
+    led.set_duty_cycle_percent(40).unwrap();
 
     let mut ep = arduino_hal::Eeprom::new(dp.EEPROM);
 
@@ -134,7 +145,17 @@ fn main() -> ! {
 
         let now = millis::now();
         if now - led_last >= 1000 {
-            led.toggle();
+            led_state = match led_state {
+                true => {
+                    led.disable();
+                    false
+                }
+                false => {
+                    led.enable();
+                    true
+                }
+            };
+
             led_last = now;
         }
 
@@ -146,7 +167,7 @@ fn main() -> ! {
                 power_signal.clear();
 
                 ep.write_byte(state_offset, 1);
-                pin_power_state.set_high();
+                pin_power_state.enable();
 
                 pin_relay_mixer.set_low();
                 pin_rpi_state.set_high();
@@ -188,7 +209,7 @@ fn main() -> ! {
                 pin_rpi_power.set_high();
 
                 ep.erase_byte(state_offset);
-                pin_power_state.set_low();
+                pin_power_state.disable();
                 PowerState::Off
             }
             PowerState::RpiShutdown(_) => { power_state }
@@ -196,7 +217,7 @@ fn main() -> ! {
             // Clean up after abrupt power loss
             PowerState::PowerSignalLow if power_signal.state() == PinState::Low => {
                 ep.erase_byte(state_offset);
-                pin_power_state.set_low();
+                pin_power_state.disable();
                 PowerState::Off
             }
             PowerState::PowerSignalLow => { power_state }

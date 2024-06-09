@@ -31,19 +31,19 @@ const MILLIS_INCREMENT: u64 = PRESCALER * (TIMER_COUNTS as u64) / 16000;
 
 static MILLIS_COUNTER: Mutex<cell::Cell<u64>> = Mutex::new(cell::Cell::new(0));
 
-pub fn init(tc0: arduino_hal::pac::TC0) {
+pub fn init(tc2: arduino_hal::pac::TC2) {
     // Configure the timer for the above interval (in CTC mode)
     // and enable its interrupt.
-    tc0.tccr0a.write(|w| w.wgm0().ctc());
-    tc0.ocr0a.write(|w| w.bits(TIMER_COUNTS));
-    tc0.tccr0b.write(|w| match PRESCALER {
-        8 => w.cs0().prescale_8(),
-        64 => w.cs0().prescale_64(),
-        256 => w.cs0().prescale_256(),
-        1024 => w.cs0().prescale_1024(),
+    tc2.tccr2a.write(|w| w.wgm2().ctc());
+    tc2.ocr2a.write(|w| w.bits(TIMER_COUNTS));
+    tc2.tccr2b.write(|w| match PRESCALER {
+        8 => w.cs2().prescale_8(),
+        64 => w.cs2().prescale_64(),
+        256 => w.cs2().prescale_256(),
+        1024 => w.cs2().prescale_1024(),
         _ => panic!(),
     });
-    tc0.timsk0.write(|w| w.ocie0a().set_bit());
+    tc2.timsk2.write(|w| w.ocie2a().set_bit());
 
     // Reset the global millisecond counter
     free(|cs| {
@@ -52,7 +52,7 @@ pub fn init(tc0: arduino_hal::pac::TC0) {
 }
 
 #[avr_device::interrupt(atmega328p)]
-fn TIMER0_COMPA() {
+fn TIMER2_COMPA() {
     free(|cs| {
         let counter_cell = MILLIS_COUNTER.borrow(cs);
         let counter = counter_cell.get();
