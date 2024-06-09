@@ -77,6 +77,7 @@ impl PartialEq for PowerState
             (On, On) => true,
             (DisableMixer(_), DisableMixer(_)) => true,
             (RpiShutdown(_), RpiShutdown(_)) => true,
+            (PowerSignalLow, PowerSignalLow) => true,
             (_, _) => false
         }
     }
@@ -163,7 +164,7 @@ fn main() -> ! {
         let prev_state = power_state.clone();
         power_state = match power_state {
             // Power on
-            PowerState::Off if changed == Some(PinState::High) => {
+            PowerState::Off if changed == Some(PinState::Low) => {
                 power_signal.clear();
 
                 ep.write_byte(state_offset, 1);
@@ -182,7 +183,7 @@ fn main() -> ! {
             PowerState::EnableSubwoofers(_) => { power_state }
 
             // Power off
-            PowerState::On if changed == Some(PinState::Low) => {
+            PowerState::On if changed == Some(PinState::High) => {
                 power_signal.clear();
 
                 pin_relay_subwoofers.set_high();
@@ -215,7 +216,7 @@ fn main() -> ! {
             PowerState::RpiShutdown(_) => { power_state }
 
             // Clean up after abrupt power loss
-            PowerState::PowerSignalLow if power_signal.state() == PinState::Low => {
+            PowerState::PowerSignalLow if power_signal.state() == PinState::High => {
                 ep.erase_byte(state_offset);
                 pin_power_state.disable();
                 PowerState::Off
